@@ -3,8 +3,8 @@
 # Install other terminals via Install > Terminal
 export TERMINAL=xdg-terminal-exec
 
-# Use code for VSCode
-export EDITOR=code
+# Use code for VSCode, vim/nvim/helix for a terminal editor
+export EDITOR=vim
 
 # Use a custom directory for screenshots (remember to make the directory!)
 # export MAITRI_SCREENSHOT_DIR="$HOME/Pictures/Screenshots"
