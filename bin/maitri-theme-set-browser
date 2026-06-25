@@ -43,6 +43,6 @@ set_browser_policy /etc/brave/policies/managed
 refresh_running_browser brave brave
 refresh_running_browser brave-origin-beta brave-origin-beta -f
 
-# Helium is intentionally omitted: maitri gives it two fixed per-profile themes
-# (Work=Spark, Personal=Orchid) via install/config/helium-profiles.sh, which a
-# browser-wide theme policy would override.
+# Helium is intentionally omitted: maitri doesn't force a browser theme on it —
+# its profiles (seeded by install/config/helium-profiles.sh) use Helium's own
+# default appearance, which a browser-wide theme policy would override.

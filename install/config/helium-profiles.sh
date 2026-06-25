@@ -1,6 +1,7 @@
-# maitri: pre-create two Helium profiles on first install — "Work" (Spark) and
-# "Personal" (Orchid). EXPERIMENTAL: assumes a recent Chromium profile schema. Does
-# nothing if Helium has already run, so it never clobbers existing profiles.
+# maitri: pre-create two Helium profiles on first install — "Work" and "Personal".
+# EXPERIMENTAL: assumes a recent Chromium profile schema. Does nothing if Helium has
+# already run, so it never clobbers existing profiles. No theme/color is forced —
+# Helium uses its own default appearance.
 #
 # Helium's Linux user-data dir is ~/.config/net.imput.helium (set in helium-linux's
 # change-chromium-branding.patch: data_dir_basename = "net.imput.helium"). Official
@@ -15,13 +16,6 @@ if [[ ! -e "$helium_dir/Local State" ]]; then
   python3 - "$helium_dir" <<'PY'
 import json, os, sys
 d = sys.argv[1]
-
-def skcolor(hexrgb):
-    v = int("FF" + hexrgb, 16)            # opaque ARGB SkColor
-    return v - (1 << 32) if v >= (1 << 31) else v
-
-WORK = skcolor("82AAFF")  # Spark blue
-PERSONAL = skcolor("E59BFF")  # Orchid magenta
 
 ONEPASSWORD = "khgocmkkpikpnmmkgmdnfckapcdkgfaf"  # 1Password beta extension
 
@@ -43,11 +37,9 @@ local_state = {
 }
 json.dump(local_state, open(os.path.join(d, "Local State"), "w"), indent=2)
 
-def prefs(name, color):
+def prefs(name):
     return {
         "profile": {"name": name},
-        # is_grayscale2 is the key the current Helium reads (older is_grayscale is ignored).
-        "browser": {"theme": {"user_color": color, "color_scheme": 1, "is_grayscale2": False}},
         "extensions": {
             "theme": {"id": ""},
             # Pin 1Password to the toolbar by default (preinstalled via managed policy
@@ -101,8 +93,8 @@ def prefs(name, color):
         },
     }
 
-json.dump(prefs("Work", WORK), open(os.path.join(d, "Default", "Preferences"), "w"), indent=2)
-json.dump(prefs("Personal", PERSONAL), open(os.path.join(d, "Profile 1", "Preferences"), "w"), indent=2)
-print("maitri: seeded Helium profiles — Work (Spark) + Personal (Orchid)")
+json.dump(prefs("Work"), open(os.path.join(d, "Default", "Preferences"), "w"), indent=2)
+json.dump(prefs("Personal"), open(os.path.join(d, "Profile 1", "Preferences"), "w"), indent=2)
+print("maitri: seeded Helium profiles — Work + Personal")
 PY
 fi
