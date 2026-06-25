@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# maitri:summary=One-time relocation of a legacy ~/.local/share/omarchy install to the maitri paths.
+# maitri:hidden=true
+
+# maitri began as a fork (named "omarchy"/"JoyOS") that installed to ~/.local/share/omarchy with
+# omarchy-* commands and config under ~/.config/omarchy. This one-time helper relocates such a
+# legacy install to the maitri paths.
+#
+# It is COPY-based and non-destructive: the old directories are left untouched so you can verify the
+# result and remove them yourself. Run it once, then log out and back in.
+#
+# NOTE: validate on a real Arch box before relying on it.
+
+set -euo pipefail
+
+OLD_SHARE="$HOME/.local/share/omarchy"
+NEW_SHARE="$HOME/.local/share/maitri"
+OLD_CONFIG="$HOME/.config/omarchy"
+NEW_CONFIG="$HOME/.config/maitri"
+OLD_STATE="$HOME/.local/state/omarchy"
+NEW_STATE="$HOME/.local/state/maitri"
+
+if [[ -d $NEW_SHARE && ! -d $OLD_SHARE ]]; then
+  echo "Already on maitri ($NEW_SHARE). Nothing to migrate."
+  exit 0
+fi
+
+if [[ ! -d $OLD_SHARE ]]; then
+  echo "No legacy install found at $OLD_SHARE. Nothing to migrate."
+  exit 0
+fi
+
+if ! command -v rsync >/dev/null 2>&1; then
+  echo "rsync is required for this migration. Install it first: sudo pacman -S rsync" >&2
+  exit 1
+fi
+
+echo "Relocating legacy install → maitri (copy-based; originals are kept)..."
+
+[[ -e $NEW_SHARE  ]] || rsync -a "$OLD_SHARE/"  "$NEW_SHARE/"
+[[ -d $OLD_CONFIG && ! -e $NEW_CONFIG ]] && rsync -a "$OLD_CONFIG/" "$NEW_CONFIG/"
+[[ -d $OLD_STATE  && ! -e $NEW_STATE  ]] && rsync -a "$OLD_STATE/"  "$NEW_STATE/"
+
+cat <<EOF
+
+Files are now in place:
+  $NEW_SHARE   (copied from $OLD_SHARE)
+  $NEW_CONFIG  (copied from $OLD_CONFIG)
+  $NEW_STATE   (copied from $OLD_STATE)
+
+Finish the switch:
+  1. Log out and back in so your shell exports MAITRI_PATH and puts
+     $NEW_SHARE/bin on PATH (the legacy session/env still points at the old paths).
+  2. Run:  maitri update
+     (this reconciles systemd units, the desktop session, sudoers, and packages)
+  3. Once everything works, remove the legacy directories:
+       rm -rf "$OLD_SHARE" "$OLD_CONFIG" "$OLD_STATE"
+EOF

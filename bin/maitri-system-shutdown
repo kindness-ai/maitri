@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# maitri:summary=Shut down after closing application windows
+# maitri:examples=maitri shutdown | maitri system shutdown
+# maitri:aliases=maitri shutdown
+
+maitri-state clear re*-required
+
+# Schedule the shutdown to happen after closing windows (detached from terminal)
+nohup bash -c "sleep 2 && systemctl poweroff --no-wall" >/dev/null 2>&1 &
+
+# Now close all windows
+maitri-hyprland-window-close-all
+sleep 1 # Allow apps like Chrome to shutdown correctly

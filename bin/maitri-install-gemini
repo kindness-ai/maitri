@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# maitri:summary=Install the Google Gemini CLI
+
+echo "Installing Gemini CLI..."
+maitri-npx-install @google/gemini-cli gemini

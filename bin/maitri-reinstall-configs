@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# maitri:summary=Reset all maitri user configs to the defaults
+# maitri:requires-sudo=true
+
+set -e
+
+# Overwrite all user configs with the maitri defaults.
+
+if (( EUID == 0 )); then
+  echo "Error: This script should not be run as root"
+  exit 1
+fi
+
+echo "Resetting all maitri configs"
+cp -R ~/.local/share/maitri/config/* ~/.config/
+cp ~/.local/share/maitri/default/bashrc ~/.bashrc
+echo '[[ -f ~/.bashrc ]] && . ~/.bashrc' | tee ~/.bash_profile >/dev/null
+
+$(bash $MAITRI_PATH/install/config/theme.sh)
+
+maitri-refresh-limine
+maitri-refresh-plymouth

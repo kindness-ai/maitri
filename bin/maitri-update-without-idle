@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# maitri:summary=No-op now that maitri-update-perform is responsible for idle management.
+# maitri:hidden=true

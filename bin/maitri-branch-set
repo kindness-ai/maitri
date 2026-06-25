@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# maitri:summary=Set the branch for maitri's git repository.
+# maitri:args=<main|rc|dev>
+
+if (($# == 0)); then
+  echo "Usage: maitri-branch-set [main|rc|dev]"
+  exit 1
+else
+  branch="$1"
+fi
+
+if [[ $branch != "main" && $branch != "rc" && $branch != "dev" ]]; then
+  echo "Error: Invalid branch '$branch'. Must be one of: main, rc, dev"
+  exit 1
+fi
+
+git -C $MAITRI_PATH switch $branch

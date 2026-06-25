@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# maitri:summary=Launch the maitri bluetooth controls TUI (provided by bluetui).
+
+rfkill unblock bluetooth
+exec maitri-launch-or-focus-tui bluetui

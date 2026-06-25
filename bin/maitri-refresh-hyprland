@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# maitri:summary=Overwrite all the user configs in ~/.config/hypr with the maitri defaults.
+
+maitri-refresh-config hypr/autostart.conf
+maitri-refresh-config hypr/bindings.conf
+maitri-refresh-config hypr/input.conf
+maitri-refresh-config hypr/looknfeel.conf
+maitri-refresh-config hypr/hyprland.conf
+maitri-refresh-config hypr/monitors.conf
+bash "$MAITRI_PATH/install/config/detect-keyboard-layout.sh"

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# maitri:summary=Toggle suspend availability in the system menu
+
+maitri-toggle \
+  --enabled-notification "󰒲   Suspend removed from system menu" \
+  --disabled-notification "󰒲   Suspend now available in system menu" \
+  suspend-off

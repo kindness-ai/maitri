@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# maitri:summary=Display brightness level using SwayOSD on the current monitor.
+# maitri:args=<0-100>
+# maitri:examples=maitri swayosd brightness 0 | maitri swayosd brightness 50 | maitri swayosd brightness 100
+
+percent="$1"
+
+progress="$(awk -v p="$percent" 'BEGIN{printf "%.2f", p/100}')"
+[[ $progress == "0.00" ]] && progress="0.01"
+
+maitri-swayosd-client \
+  --custom-icon display-brightness-symbolic \
+  --custom-progress "$progress" \
+  --custom-progress-text "${percent}%"

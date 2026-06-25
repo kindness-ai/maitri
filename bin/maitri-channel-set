@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# maitri:summary=Set the maitri channel, which dictates what git branch and package repository is used.
+# maitri:args=<stable|rc|edge|dev>
+# maitri:requires-sudo=true
+
+if (($# == 0)); then
+  echo "Usage: maitri-channel-set [stable|rc|edge|dev]"
+  exit 1
+else
+  channel="$1"
+fi
+
+case "$channel" in
+"stable") maitri-branch-set "main" && maitri-refresh-pacman "stable" ;;
+"rc") maitri-branch-set "rc" && maitri-refresh-pacman "rc" ;;
+"edge") maitri-branch-set "main" && maitri-refresh-pacman "edge" ;;
+"dev") maitri-branch-set "dev" && maitri-refresh-pacman "edge" ;;
+*) echo "Unknown channel: $channel"; exit 1; ;;
+esac
+
+maitri-update -y

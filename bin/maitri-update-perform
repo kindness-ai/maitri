@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# maitri:summary=Run the full maitri update pipeline
+# maitri:requires-sudo=true
+
+set -e
+
+# Ensure screensaver/sleep doesn't set in during updates
+hyprctl dispatch tagwindow +noidle &>/dev/null || true
+
+# Perform all update steps
+maitri-update-keyring
+maitri-update-available-reset
+maitri-update-system-pkgs
+maitri-migrate
+maitri-update-aur-pkgs
+maitri-update-orphan-pkgs
+maitri-hook post-update
+
+maitri-update-analyze-logs
+
+maitri-update-restart
+
+# Re-enable screensaver/sleep after updates
+hyprctl dispatch tagwindow -- -noidle &>/dev/null || true

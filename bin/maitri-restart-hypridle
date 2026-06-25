@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# maitri:summary=Restart the hypridle service (used for idle detection and auto-lock).
+
+maitri-restart-app hypridle

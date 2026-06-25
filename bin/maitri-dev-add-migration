@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# maitri:summary=Creates a new maitri migration named after the unix timestamp of the last commit.
+
+cd ~/.local/share/maitri
+migration_file="$HOME/.local/share/maitri/migrations/$(git log -1 --format=%cd --date=unix).sh"
+touch $migration_file
+
+if [[ $1 != "--no-edit" ]]; then
+  nvim $migration_file
+fi
+
+echo $migration_file

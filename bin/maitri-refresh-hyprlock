@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# maitri:summary=Overwrite the user config for hyprlock with the maitri default.
+
+maitri-refresh-config hypr/hyprlock.conf

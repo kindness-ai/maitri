@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# maitri:summary=Reset Waybar config to maitri defaults
+# maitri:examples=maitri refresh waybar
+
+maitri-refresh-config waybar/config.jsonc
+maitri-refresh-config waybar/style.css
+maitri-restart-waybar

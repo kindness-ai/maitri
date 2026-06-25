@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# maitri:summary=Toggle screensaver availability
+
+maitri-toggle \
+  --enabled-notification "󱄄   Screensaver disabled" \
+  --disabled-notification "󱄄   Screensaver enabled" \
+  screensaver-off

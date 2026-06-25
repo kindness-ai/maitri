@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# maitri:summary=Overwrite the user configs for swayosd (controls on-screen feedback for changing volume/songs etc) with the maitri defaults and restart the service.
+
+maitri-refresh-config swayosd/config.toml
+maitri-refresh-config swayosd/style.css
+maitri-restart-swayosd

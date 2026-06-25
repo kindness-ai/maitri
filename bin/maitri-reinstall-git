@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# maitri:summary=Reinstall the maitri source directory from git
+
+set -e
+
+# Reinstall the maitri configuration directory from the git source.
+
+# Reuse the current install's origin remote; fall back to the public repo URL.
+maitri_url="$(git -C "$MAITRI_PATH" remote get-url origin 2>/dev/null)"
+[[ -z "$maitri_url" ]] && maitri_url="https://github.com/kindness-ai/maitri.git"
+git clone --depth=1 --branch main "$maitri_url" ~/.local/share/maitri-new >/dev/null
+mv $MAITRI_PATH ~/.local/share/maitri-old
+mv ~/.local/share/maitri-new $MAITRI_PATH

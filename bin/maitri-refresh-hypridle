@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# maitri:summary=Overwrite the user config for hypridle with the maitri default and restart the service.
+
+maitri-refresh-config hypr/hypridle.conf
+maitri-restart-hypridle

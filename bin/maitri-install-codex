@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# maitri:summary=Install the OpenAI Codex CLI
+
+echo "Installing Codex CLI..."
+maitri-npx-install @openai/codex codex

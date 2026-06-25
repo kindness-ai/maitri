@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# maitri:summary=Apply the current theme keyboard color to ASUS ROG keyboards
+# maitri:hidden=true
+
+ASUSCTL_THEME=~/.config/maitri/current/theme/keyboard.rgb
+
+if maitri-cmd-present asusctl; then
+  asusctl aura effect static -c $(sed 's/^#//' $ASUSCTL_THEME)
+fi

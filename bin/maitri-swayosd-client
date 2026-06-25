@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# maitri:summary=Wrapper for swayosd-client that targets the currently focused monitor.
+# maitri:args=<swayosd-client-args...>
+
+exec swayosd-client --monitor "$(maitri-hyprland-monitor-focused)" "$@"

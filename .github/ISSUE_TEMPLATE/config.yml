@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Suggestion
+    url: https://github.com/kindness-ai/maitri/discussions/categories/suggestions
+    about: Suggest a new feature, change to existing feature, or other ideas in Discussions.
+  - name: Support
+    url: https://github.com/kindness-ai/maitri/issues
+    about: Need help? Open an issue. Please search existing issues first.

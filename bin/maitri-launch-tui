@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# maitri:summary=Launch a TUI command in the default terminal with maitri styling
+# maitri:args=<command> [args...]
+
+exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.maitri.$(basename $1) -e "$1" "${@:2}"

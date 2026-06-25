@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# maitri:summary=Set the Plymouth boot theme from an maitri theme
+# maitri:args=<theme-name>
+# maitri:requires-sudo=true
+
+# Resolve a theme by name and apply its unlock.png + colors.toml as the
+# Plymouth boot screen via maitri-plymouth-set.
+
+if [[ $# -ne 1 ]]; then
+  echo "Usage: maitri-plymouth-set-by-theme <theme-name>" >&2
+  exit 1
+fi
+
+theme=$1
+
+if [[ -d ~/.config/maitri/themes/$theme ]]; then
+  theme_dir=~/.config/maitri/themes/$theme
+else
+  theme_dir="$MAITRI_PATH/themes/$theme"
+fi
+
+bg=$(awk -F'"' '/^background/{print $2}' "$theme_dir/colors.toml")
+text=$(awk -F'"' '/^foreground/{print $2}' "$theme_dir/colors.toml")
+
+exec maitri-plymouth-set "$bg" "$text" "$theme_dir/unlock.png"

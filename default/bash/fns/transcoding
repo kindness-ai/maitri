@@ -1,0 +1,33 @@
+# Transcoding helpers have moved to maitri-transcode.
+
+transcode-video-1080p() {
+  maitri-transcode "$1" mp4 1080p
+}
+
+transcode-video-4K() {
+  maitri-transcode "$1" mp4 4k
+}
+
+transcode-video-gif() {
+  maitri-transcode "$1" gif 1080p
+}
+
+img2jpg() {
+  maitri-transcode "$1" jpg high
+}
+
+img2jpg-small() {
+  maitri-transcode "$1" jpg low
+}
+
+img2jpg-medium() {
+  maitri-transcode "$1" jpg medium
+}
+
+img2jpg-large() {
+  maitri-transcode "$1" jpg high
+}
+
+img2png() {
+  maitri-transcode "$1" png high
+}

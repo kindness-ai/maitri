@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# maitri:summary=Ensure the maitri and Arch keyring packages are installed and populated
+# maitri:requires-sudo=true
+
+maitri_gpg="$MAITRI_PATH/iso/builder/maitri.gpg"
+maitri_fpr=$(gpg --show-keys --with-colons "$maitri_gpg" 2>/dev/null | awk -F: '/^fpr/{print $10; exit}')
+
+if maitri-pkg-missing maitri-keyring || ! sudo pacman-key --list-keys "$maitri_fpr" &>/dev/null; then
+  sudo pacman-key --add "$maitri_gpg"
+  sudo pacman-key --lsign-key "$maitri_fpr"
+
+  # This is generally not a good idea, but this is a special case because we're going to be updating
+  # the full set of packages in maitri-update-system-pkgs right after this (and it needs latest keyring)!
+  sudo pacman -Sy
+  maitri-pkg-add maitri-keyring
+
+  sudo pacman-key --list-keys "$maitri_fpr"
+fi
+
+# Ensure we have the latest archlinux-keyring, maintainer keys might have changed
+# Always reinstall, as the keyring can be updated without a package version bump.
+echo -e "\e[32m\nUpdate Arch signing keys\e[0m"
+sudo pacman -Sy --noconfirm archlinux-keyring >/dev/null 2> >(grep -vE '^warning: archlinux-keyring-[^ ]+ is up to date -- reinstalling$' >&2)
+echo "Keys are correct"

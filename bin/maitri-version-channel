@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# maitri:summary=Print the active maitri package channel
+
+if grep -q "maitri-pkgs/releases/download/stable" /etc/pacman.conf; then
+  echo "stable"
+elif grep -q "maitri-pkgs/releases/download/rc" /etc/pacman.conf; then
+  echo "rc"
+elif grep -q "maitri-pkgs/releases/download/edge" /etc/pacman.conf; then
+  echo "edge"
+else
+  echo "unknown"
+fi

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# maitri:summary=Reload mako configuration (used by the maitri theme switching).
+
+makoctl reload

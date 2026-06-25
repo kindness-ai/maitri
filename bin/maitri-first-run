@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# maitri:summary=Finish the installation of maitri with items that can only be done after logging in.
+# maitri:requires-sudo=true
+
+set -e
+
+FIRST_RUN_MODE=~/.local/state/maitri/first-run.mode
+
+if [[ -f $FIRST_RUN_MODE ]]; then
+  rm -f "$FIRST_RUN_MODE"
+
+  bash "$MAITRI_PATH/install/first-run/battery-monitor.sh"
+  bash "$MAITRI_PATH/install/first-run/recover-internal-monitor.sh"
+  bash "$MAITRI_PATH/install/first-run/cleanup-reboot-sudoers.sh"
+  bash "$MAITRI_PATH/install/first-run/firewall.sh"
+  bash "$MAITRI_PATH/install/first-run/dns-resolver.sh"
+  bash "$MAITRI_PATH/install/first-run/gnome-theme.sh"
+  bash "$MAITRI_PATH/install/first-run/swayosd.sh"
+  bash "$MAITRI_PATH/install/first-run/gtk-primary-paste.sh"
+  bash "$MAITRI_PATH/install/first-run/elephant.sh"
+  maitri-hook-install post-update "$MAITRI_PATH/install/first-run/install-voxtype.hook"
+  sudo rm -f /etc/sudoers.d/first-run
+
+  bash "$MAITRI_PATH/install/first-run/welcome.sh"
+  bash "$MAITRI_PATH/install/first-run/wifi.sh"
+fi

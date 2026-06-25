@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# maitri:summary=Refresh the SDDM theme from default
+# maitri:requires-sudo=true
+
+sudo rm -rf /usr/share/sddm/themes/maitri
+sudo cp -r $MAITRI_PATH/default/sddm/maitri /usr/share/sddm/themes/maitri

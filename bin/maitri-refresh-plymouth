@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# maitri:summary=Overwrite the user config for the Plymouth drive decryption and boot sequence with the maitri default and rebuild it.
+# maitri:requires-sudo=true
+
+sudo cp -r ~/.local/share/maitri/default/plymouth/* /usr/share/plymouth/themes/maitri/
+sudo plymouth-set-default-theme maitri
+
+if command -v limine-mkinitcpio &>/dev/null; then
+  sudo limine-mkinitcpio
+else
+  sudo mkinitcpio -P
+fi

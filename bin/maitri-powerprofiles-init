@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# maitri:summary=Set the correct power profile on boot based on current AC/battery state.
+
+if maitri-battery-present && ! maitri-ac-present; then
+  maitri-powerprofiles-set battery
+else
+  maitri-powerprofiles-set ac
+fi

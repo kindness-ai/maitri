@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# maitri:summary=Launch a floating terminal with the maitri presentation wrapper
+# maitri:args=<command>
+
+cmd="$*"
+exec setsid uwsm-app -- xdg-terminal-exec --app-id=org.maitri.terminal --title=maitri -e bash -c "maitri-show-logo; $cmd; if (( \$? != 130 )); then maitri-show-done; fi"

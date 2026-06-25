@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# maitri:summary=Launch the maitri audio controls TUI (provided by wiremix).
+
+maitri-launch-or-focus-tui wiremix

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# maitri:summary=Overwrite the user config for fastfetch with the maitri default.
+
+maitri-refresh-config fastfetch/config.jsonc

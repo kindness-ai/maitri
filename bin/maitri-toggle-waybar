@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# maitri:summary=Toggle Waybar visibility
+# maitri:examples=maitri toggle waybar
+
+maitri-toggle waybar-off
+
+if pgrep -x waybar >/dev/null; then
+  pkill -x waybar
+else
+  uwsm-app -- waybar >/dev/null 2>&1 &
+fi

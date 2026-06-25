@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# maitri:summary=Launch a TUI or focus an existing terminal window for it
+# maitri:args=<command> [args...]
+
+APP_ID="org.maitri.$(basename "$1")"
+LAUNCH_COMMAND="maitri-launch-tui $@"
+
+exec maitri-launch-or-focus "$APP_ID" "$LAUNCH_COMMAND"

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# maitri:summary=Print the current maitri git branch
+
+echo $(git -C "$MAITRI_PATH" rev-parse --abbrev-ref HEAD)

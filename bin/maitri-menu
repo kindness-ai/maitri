@@ -1,0 +1,891 @@
+#!/bin/bash
+
+# maitri:summary=Launch the maitri Menu or takes a parameter to jump straight to a submenu.
+
+# Set to true when going directly to a submenu, so we can exit directly
+BACK_TO_EXIT=false
+
+back_to() {
+  local parent_menu="$1"
+
+  if [[ $BACK_TO_EXIT == "true" ]]; then
+    exit 0
+  elif [[ -n $parent_menu ]]; then
+    "$parent_menu"
+  else
+    show_main_menu
+  fi
+}
+
+toggle_existing_menu() {
+  if pgrep -f "walker.*--dmenu" >/dev/null; then
+    walker --close >/dev/null 2>&1
+    exit 0
+  fi
+}
+
+menu() {
+  local prompt="$1"
+  local options="$2"
+  local extra="$3"
+  local preselect="$4"
+
+  read -r -a args <<<"$extra"
+
+  if [[ -n $preselect ]]; then
+    local index
+    index=$(echo -e "$options" | grep -nxF "$preselect" | cut -d: -f1)
+    if [[ -n $index ]]; then
+      args+=("-c" "$index")
+    fi
+  fi
+
+  echo -e "$options" | maitri-launch-walker --dmenu --width 295 --minheight 1 --maxheight 630 -p "$prompt…" "${args[@]}" 2>/dev/null
+}
+
+terminal() {
+  xdg-terminal-exec --app-id=org.maitri.terminal "$@"
+}
+
+present_terminal() {
+  maitri-launch-floating-terminal-with-presentation $1
+}
+
+open_in_editor() {
+  notify-send -u low "Editing config file" "$1"
+  maitri-launch-editor "$1"
+}
+
+install() {
+  present_terminal "echo 'Installing $1...'; maitri-pkg-add $2"
+}
+
+install_and_launch() {
+  present_terminal "echo 'Installing $1...'; maitri-pkg-add $2 && setsid gtk-launch $3"
+}
+
+install_font() {
+  present_terminal "echo 'Installing $1...'; maitri-pkg-add $2 && sleep 2 && maitri-font-set '$3'"
+}
+
+install_terminal() {
+  present_terminal "maitri-install-terminal $1"
+}
+
+aur_install() {
+  present_terminal "echo 'Installing $1 from AUR...'; maitri-pkg-aur-add $2"
+}
+
+aur_install_and_launch() {
+  present_terminal "echo 'Installing $1 from AUR...'; maitri-pkg-aur-add $2 && setsid gtk-launch $3"
+}
+
+show_learn_menu() {
+  case $(menu "Learn" "  Keybindings\n  maitri\n  Hyprland\n󰣇  Arch\n  Neovim\n󱆃  Bash") in
+  *Keybindings*) maitri-menu-keybindings ;;
+  *maitri*) maitri-launch-webapp "https://github.com/kindness-ai/maitri" ;;
+  *Hyprland*) maitri-launch-webapp "https://wiki.hypr.land/" ;;
+  *Arch*) maitri-launch-webapp "https://wiki.archlinux.org/title/Main_page" ;;
+  *Bash*) maitri-launch-webapp "https://devhints.io/bash" ;;
+  *Neovim*) maitri-launch-webapp "https://www.lazyvim.org/keymaps" ;;
+  *) show_main_menu ;;
+  esac
+}
+
+show_trigger_menu() {
+  case $(menu "Trigger" "󰔛  Reminder\n  Capture\n󰧸  Transcode\n  Share\n󰔎  Toggle\n  Hardware") in
+  *Reminder*) show_reminder_menu ;;
+  *Capture*) show_capture_menu ;;
+  *Transcode*) maitri-transcode || back_to show_trigger_menu ;;
+  *Share*) show_share_menu ;;
+  *Toggle*) show_toggle_menu ;;
+  *Hardware*) show_hardware_menu ;;
+  *) show_main_menu ;;
+  esac
+}
+
+show_reminder_menu() {
+  case $(menu "Reminder" "󰔛  Set one\n󰔛  Show all\n󰔛  Clear all") in
+  *Set*) show_custom_reminder_input ;;
+  *"Show all"*) maitri-reminder show ;;
+  *"Clear all"*) maitri-reminder clear ;;
+  *) back_to show_trigger_menu ;;
+  esac
+}
+
+show_custom_reminder_input() {
+  local minutes
+  minutes=$(maitri-menu-input "Remind in minutes")
+
+  if [[ $minutes =~ ^[0-9]+$ ]] && ((minutes > 0)); then
+    show_reminder_message_input "$minutes"
+  elif [[ -n $minutes ]]; then
+    maitri-notification-send "󰔛" "Invalid reminder" "Enter the number of minutes" -u critical
+    show_custom_reminder_input
+  else
+    back_to show_reminder_menu
+  fi
+}
+
+show_reminder_message_input() {
+  local minutes="$1"
+  local message
+  message=$(maitri-menu-input "Reminder message")
+
+  if [[ -n $message ]]; then
+    maitri-reminder "$minutes" "$message"
+  else
+    maitri-reminder "$minutes"
+  fi
+}
+
+show_capture_menu() {
+  case $(menu "Capture" "  Screenshot\n  Screenrecord\n󰴑  Text Extraction\n󰃉  Color") in
+  *Screenshot*) maitri-capture-screenshot ;;
+  *Screenrecord*) show_screenrecord_menu ;;
+  *Text*) maitri-capture-text-extraction ;;
+  *Color*) pkill hyprpicker || hyprpicker -a ;;
+  *) back_to show_trigger_menu ;;
+  esac
+}
+
+get_webcam_list() {
+  v4l2-ctl --list-devices 2>/dev/null | while IFS= read -r line; do
+    if [[ $line != $'\t'* && -n $line ]]; then
+      local name="$line"
+      IFS= read -r device || break
+      device=$(echo "$device" | tr -d '\t' | head -1)
+      [[ -n $device ]] && echo "$device  $name"
+    fi
+  done
+}
+
+show_webcam_select_menu() {
+  local devices=$(get_webcam_list)
+  local count=$(echo "$devices" | grep -c . 2>/dev/null || echo 0)
+
+  if [[ -z $devices ]] || ((count == 0)); then
+    notify-send "No webcam devices found" -u critical -t 3000
+    return 1
+  fi
+
+  if ((count == 1)); then
+    echo "$devices" | awk '{print $1}'
+  else
+    menu "Select Webcam" "$devices" | awk '{print $1}'
+  fi
+}
+
+show_screenrecord_menu() {
+  maitri-capture-screenrecording --stop-recording && exit 0
+
+  case $(menu "Screenrecord" "  With no audio\n  With desktop audio\n  With desktop + microphone audio\n  With desktop + microphone audio + webcam") in
+  *"With no audio") maitri-capture-screenrecording ;;
+  *"With desktop audio") maitri-capture-screenrecording --with-desktop-audio ;;
+  *"With desktop + microphone audio") maitri-capture-screenrecording --with-desktop-audio --with-microphone-audio ;;
+  *"With desktop + microphone audio + webcam")
+    local device=$(show_webcam_select_menu) || {
+      back_to show_capture_menu
+      return
+    }
+    maitri-capture-screenrecording --with-desktop-audio --with-microphone-audio --with-webcam --webcam-device="$device"
+    ;;
+  *) back_to show_capture_menu ;;
+  esac
+}
+
+show_share_menu() {
+  case $(menu "Share" "  Clipboard\n  File \n  Folder") in
+  *Clipboard*) maitri-menu-share clipboard ;;
+  *File*) terminal bash -c "maitri-menu-share file" ;;
+  *Folder*) terminal bash -c "maitri-menu-share folder" ;;
+  *) back_to show_trigger_menu ;;
+  esac
+}
+
+show_toggle_menu() {
+  local options="󱄄  Screensaver\n󰔎  Nightlight\n󱫖  Idle Lock\n󰂛  Notifications\n󰍜  Top Bar\n󱂬  Workspace Layout\n  Window Gaps\n  1-Window Ratio\n󰍹  Monitor Scaling\n  Direct Boot\n󰟵  Passwordless Sudo"
+
+  case $(menu "Toggle" "$options") in
+  *Screensaver*) maitri-toggle-screensaver ;;
+  *Nightlight*) maitri-toggle-nightlight ;;
+  *Idle*) maitri-toggle-idle ;;
+  *Notifications*) maitri-toggle-notification-silencing ;;
+  *Bar*) maitri-toggle-waybar ;;
+  *Layout*) maitri-hyprland-workspace-layout-toggle ;;
+  *Ratio*) maitri-hyprland-window-single-square-aspect-toggle ;;
+  *Gaps*) maitri-hyprland-window-gaps-toggle ;;
+  *Scaling*) maitri-hyprland-monitor-scaling-cycle ;;
+  *"Direct Boot"*) present_terminal maitri-config-direct-boot ;;
+  *"Passwordless Sudo"*) present_terminal maitri-sudo-passwordless ;;
+  *) back_to show_trigger_menu ;;
+  esac
+}
+
+show_hardware_menu() {
+  local options="󰛧  Laptop Display\n 󰍹  Mirror Display"
+
+  if maitri-hw-hybrid-gpu; then
+    options="$options\n  Hybrid GPU"
+  fi
+
+  if maitri-hw-touchpad; then
+    options="$options\n󰟸  Touchpad"
+  fi
+
+  if maitri-hw-dell-xps-haptic-touchpad && maitri-cmd-present dell-xps-touchpad-haptics; then
+    options="$options\n󰌌  Touchpad Haptics"
+  fi
+
+  if maitri-hw-touchscreen; then
+    options="$options\n󰆽  Touchscreen"
+  fi
+
+  case $(menu "Toggle" "$options") in
+  *Laptop*) maitri-hyprland-monitor-internal toggle ;;
+  *Mirror*) maitri-hyprland-monitor-internal-mirror toggle ;;
+  *Haptics*) show_hardware_touchpad_haptics_menu ;;
+  *Touchpad*) maitri-toggle-touchpad ;;
+  *Touchscreen*) maitri-toggle-touchscreen ;;
+  *"Hybrid GPU"*) present_terminal maitri-toggle-hybrid-gpu ;;
+  *) back_to show_trigger_menu ;;
+  esac
+}
+
+show_hardware_touchpad_haptics_menu() {
+  local current=$(dell-xps-touchpad-haptics get)
+  local selected=$(menu "Touchpad Haptics" "low\nmid\nhigh" "" "$current")
+
+  if [[ -n $selected ]]; then
+    dell-xps-touchpad-haptics set "$selected"
+  else
+    back_to show_hardware_menu
+  fi
+}
+
+show_style_menu() {
+  case $(menu "Style" "󰸌  Theme\n󰟵  Unlock\n  Font\n  Background\n  Hyprland\n󱄄  Screensaver\n  About") in
+  *Theme*) show_theme_menu ;;
+  *Unlock*) maitri-launch-walker -m menus:maitriunlocks --width 800 --minheight 400 ;;
+  *Font*) show_font_menu ;;
+  *Background*) show_background_menu ;;
+  *Hyprland*) open_in_editor ~/.config/hypr/looknfeel.conf ;;
+  *Screensaver*) show_screensaver_menu ;;
+  *About*) show_about_menu ;;
+  *) show_main_menu ;;
+  esac
+}
+
+show_about_menu() {
+  case $(menu "About" "  Edit Text\n  Set From Image\n  Restore Default") in
+  *Text*) maitri-branding-about text ;;
+  *Image*) maitri-branding-about image ;;
+  *Default*) maitri-branding-about reset ;;
+  *) show_style_menu ;;
+  esac
+}
+
+show_screensaver_menu() {
+  case $(menu "Screensaver" "  Edit Text\n  Set From Image\n  Restore Default") in
+  *Text*) maitri-branding-screensaver text ;;
+  *Image*) maitri-branding-screensaver image ;;
+  *Default*) maitri-branding-screensaver reset ;;
+  *) show_style_menu ;;
+  esac
+}
+
+show_theme_menu() {
+  maitri-launch-walker -m menus:maitrithemes --width 800 --minheight 400
+}
+
+show_background_menu() {
+  maitri-launch-walker -m menus:maitriBackgroundSelector --width 800 --minheight 400
+}
+
+show_font_menu() {
+  theme=$(menu "Font" "$(maitri-font-list)" "--width 350" "$(maitri-font-current)")
+  if [[ $theme == "CNCLD" || -z $theme ]]; then
+    back_to show_style_menu
+  else
+    maitri-font-set "$theme"
+  fi
+}
+
+show_setup_menu() {
+  local options="  Audio\n  Wifi\n󰂯  Bluetooth\n󱐋  Power Profile\n  System Sleep\n󰍹  Monitors"
+  [[ -f ~/.config/hypr/bindings.conf ]] && options="$options\n  Keybindings"
+  [[ -f ~/.config/hypr/input.conf ]] && options="$options\n  Input"
+  options="$options\n  Defaults\n󰱔  DNS\n  Security\n  Config"
+
+  case $(menu "Setup" "$options") in
+  *Audio*) maitri-launch-audio ;;
+  *Wifi*) maitri-launch-wifi ;;
+  *Bluetooth*) maitri-launch-bluetooth ;;
+  *Power*) show_setup_power_menu ;;
+  *System*) show_setup_system_menu ;;
+  *Monitors*) open_in_editor ~/.config/hypr/monitors.conf ;;
+  *Keybindings*) open_in_editor ~/.config/hypr/bindings.conf ;;
+  *Input*) open_in_editor ~/.config/hypr/input.conf ;;
+  *Defaults*) show_setup_default_menu ;;
+  *DNS*) present_terminal maitri-setup-dns ;;
+  *Security*) show_setup_security_menu ;;
+  *Config*) show_setup_config_menu ;;
+  *) show_main_menu ;;
+  esac
+}
+
+show_setup_power_menu() {
+  profile=$(menu "Power Profile" "$(maitri-powerprofiles-list)" "" "$(powerprofilesctl get)")
+
+  if [[ $profile == "CNCLD" || -z $profile ]]; then
+    back_to show_setup_menu
+  else
+    powerprofilesctl set "$profile"
+  fi
+}
+
+show_setup_security_menu() {
+  case $(menu "Setup" "󰈷  Fingerprint\n  Fido2") in
+  *Fingerprint*) present_terminal maitri-setup-security-fingerprint ;;
+  *Fido2*) present_terminal maitri-setup-security-fido2 ;;
+  *) show_setup_menu ;;
+  esac
+}
+
+show_setup_default_menu() {
+  case $(menu "Default" "  Browser\n  Terminal\n  Editor") in
+  *Browser*) show_setup_default_browser_menu ;;
+  *Terminal*) show_setup_default_terminal_menu ;;
+  *Editor*) show_setup_default_editor_menu ;;
+  *) show_setup_menu ;;
+  esac
+}
+
+browser_desktop_exists() {
+  [[ -f ~/.local/share/applications/$1 || -f ~/.nix-profile/share/applications/$1 || -f /usr/share/applications/$1 ]]
+}
+
+show_setup_default_browser_menu() {
+  local options=""
+  browser_desktop_exists chromium.desktop && options="$options  Chromium"
+  browser_desktop_exists google-chrome.desktop && options="${options:+$options\n}󰊯  Chrome"
+  browser_desktop_exists brave-browser.desktop && options="${options:+$options\n}󰖟  Brave"
+  browser_desktop_exists brave-origin-beta.desktop && options="${options:+$options\n}󰖟  Brave Origin"
+  browser_desktop_exists microsoft-edge.desktop && options="${options:+$options\n}󰇩  Edge"
+  browser_desktop_exists firefox.desktop && options="${options:+$options\n}󰈹  Firefox"
+  browser_desktop_exists zen.desktop && options="${options:+$options\n}󰖟  Zen"
+
+  local current=""
+  case "$(maitri-default-browser)" in
+  chromium) current="  Chromium" ;;
+  chrome) current="󰊯  Chrome" ;;
+  brave) current="󰖟  Brave" ;;
+  brave-origin) current="󰖟  Brave Origin" ;;
+  edge) current="󰇩  Edge" ;;
+  firefox) current="󰈹  Firefox" ;;
+  zen) current="󰖟  Zen" ;;
+  esac
+
+  case $(menu "Default Browser" "$options" "" "$current") in
+  *Chromium*) maitri-default-browser chromium ;;
+  *Chrome*) maitri-default-browser chrome ;;
+  *"Brave Origin"*) maitri-default-browser brave-origin ;;
+  *Brave*) maitri-default-browser brave ;;
+  *Edge*) maitri-default-browser edge ;;
+  *Firefox*) maitri-default-browser firefox ;;
+  *Zen*) maitri-default-browser zen ;;
+  *) show_setup_default_menu ;;
+  esac
+}
+
+show_setup_default_terminal_menu() {
+  local options=""
+  maitri-cmd-present alacritty && options="$options  Alacritty"
+  maitri-cmd-present foot && options="${options:+$options\n}  Foot"
+  maitri-cmd-present ghostty && options="${options:+$options\n}  Ghostty"
+  maitri-cmd-present kitty && options="${options:+$options\n}  Kitty"
+
+  local current=""
+  case "$(maitri-default-terminal)" in
+  alacritty) current="  Alacritty" ;;
+  foot) current="  Foot" ;;
+  ghostty) current="  Ghostty" ;;
+  kitty) current="  Kitty" ;;
+  esac
+
+  case $(menu "Default Terminal" "$options" "" "$current") in
+  *Alacritty*) maitri-default-terminal alacritty ;;
+  *Foot*) maitri-default-terminal foot ;;
+  *Ghostty*) maitri-default-terminal ghostty ;;
+  *Kitty*) maitri-default-terminal kitty ;;
+  *) show_setup_default_menu ;;
+  esac
+}
+
+show_setup_default_editor_menu() {
+  local options=""
+  maitri-cmd-present nvim && options="$options  Neovim"
+  maitri-cmd-present code && options="${options:+$options\n}  VSCode"
+  maitri-cmd-present cursor && options="${options:+$options\n}  Cursor"
+  maitri-cmd-present zeditor && options="${options:+$options\n}  Zed"
+  maitri-cmd-present sublime_text && options="${options:+$options\n}  Sublime Text"
+  maitri-cmd-present helix && options="${options:+$options\n}  Helix"
+  maitri-cmd-present vim && options="${options:+$options\n}  Vim"
+  maitri-cmd-present emacs && options="${options:+$options\n}  Emacs"
+
+  local current=""
+  case "$(maitri-default-editor)" in
+  nvim) current="  Neovim" ;;
+  code) current="  VSCode" ;;
+  cursor) current="  Cursor" ;;
+  zed | zeditor) current="  Zed" ;;
+  sublime_text) current="  Sublime Text" ;;
+  helix) current="  Helix" ;;
+  vim) current="  Vim" ;;
+  emacs) current="  Emacs" ;;
+  esac
+
+  case $(menu "Default Editor" "$options" "" "$current") in
+  *Neovim*) maitri-default-editor nvim ;;
+  *VSCode*) maitri-default-editor code ;;
+  *Cursor*) maitri-default-editor cursor ;;
+  *Zed*) maitri-default-editor zed ;;
+  *Sublime*) maitri-default-editor sublime_text ;;
+  *Helix*) maitri-default-editor helix ;;
+  *Vim*) maitri-default-editor vim ;;
+  *Emacs*) maitri-default-editor emacs ;;
+  *) show_setup_default_menu ;;
+  esac
+}
+
+show_setup_config_menu() {
+  case $(menu "Setup" "  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n  Swayosd\n󰌧  Walker\n󰍜  Waybar\n󰞅  XCompose") in
+  *Hyprland*) open_in_editor ~/.config/hypr/hyprland.conf ;;
+  *Hypridle*) open_in_editor ~/.config/hypr/hypridle.conf && maitri-restart-hypridle ;;
+  *Hyprlock*) open_in_editor ~/.config/hypr/hyprlock.conf ;;
+  *Hyprsunset*) open_in_editor ~/.config/hypr/hyprsunset.conf && maitri-restart-hyprsunset ;;
+  *Swayosd*) open_in_editor ~/.config/swayosd/config.toml && maitri-restart-swayosd ;;
+  *Walker*) open_in_editor ~/.config/walker/config.toml && maitri-restart-walker ;;
+  *Waybar*) open_in_editor ~/.config/waybar/config.jsonc && maitri-restart-waybar ;;
+  *XCompose*) open_in_editor ~/.config/X11/Xcompose && maitri-restart-xcompose ;;
+  *) show_setup_menu ;;
+  esac
+}
+
+show_setup_system_menu() {
+  local options=""
+
+  if maitri-toggle-enabled suspend-off; then
+    options="$options󰒲  Enable Suspend"
+  else
+    options="$options󰒲  Disable Suspend"
+  fi
+
+  if maitri-hibernation-available; then
+    options="$options\n󰤁  Disable Hibernate"
+  else
+    options="$options\n󰤁  Enable Hibernate"
+  fi
+
+  case $(menu "System" "$options") in
+  *Suspend*) maitri-toggle-suspend ;;
+  *"Enable Hibernate"*) present_terminal maitri-hibernation-setup ;;
+  *"Disable Hibernate"*) present_terminal maitri-hibernation-remove ;;
+  *) show_setup_menu ;;
+  esac
+}
+
+show_install_menu() {
+  case $(menu "Install" "󰣇  Package\n󰣇  AUR\n  Web App\n  TUI\n  Service\n  Style\n󰵮  Development\n  Editor\n  Terminal\n  Browser\n󱚤  AI\n  Gaming\n󰍲  Windows") in
+  *Package*) terminal maitri-pkg-install ;;
+  *AUR*) terminal maitri-pkg-aur-install ;;
+  *Web*) present_terminal maitri-webapp-install ;;
+  *TUI*) present_terminal maitri-tui-install ;;
+  *Service*) show_install_service_menu ;;
+  *Style*) show_install_style_menu ;;
+  *Development*) show_install_development_menu ;;
+  *Editor*) show_install_editor_menu ;;
+  *Terminal*) show_install_terminal_menu ;;
+  *Browser*) show_install_browser_menu ;;
+  *Gaming*) show_install_gaming_menu ;;
+  *AI*) show_install_ai_menu ;;
+  *Windows*) present_terminal "maitri-windows-vm install" ;;
+  *) show_main_menu ;;
+  esac
+}
+
+show_install_browser_menu() {
+  case $(menu "Install" "  Chrome\n  Edge\n  Brave\n  Brave Origin\n  Firefox\n󰖟  Zen") in
+  *Chrome*) present_terminal "maitri-install-browser chrome" ;;
+  *Edge*) present_terminal "maitri-install-browser edge" ;;
+  *"Brave Origin"*) present_terminal "maitri-install-browser brave-origin" ;;
+  *Brave*) present_terminal "maitri-install-browser brave" ;;
+  *Firefox*) present_terminal "maitri-install-browser firefox" ;;
+  *Zen*) present_terminal "maitri-install-browser zen" ;;
+  *) show_install_menu ;;
+  esac
+}
+
+show_install_service_menu() {
+  case $(menu "Install" "  Dropbox\n  Tailscale\n󱇱  NordVPN [AUR]\n󰏖  ONCE\n󰟵  Bitwarden\n  Chromium Account") in
+  *Dropbox*) present_terminal maitri-install-dropbox ;;
+  *Tailscale*) present_terminal maitri-install-tailscale ;;
+  *NordVPN*) present_terminal maitri-install-nordvpn ;;
+  *ONCE*) present_terminal maitri-install-once ;;
+  *Bitwarden*) install_and_launch "Bitwarden" "bitwarden bitwarden-cli" "bitwarden" ;;
+  *Chromium*) present_terminal maitri-install-chromium-google-account ;;
+  *) show_install_menu ;;
+  esac
+}
+
+show_install_editor_menu() {
+  case $(menu "Install" "  VSCode\n  Cursor\n  Zed\n  Sublime Text\n  Helix\n  Vim\n  Emacs") in
+  *VSCode*) present_terminal maitri-install-vscode ;;
+  *Cursor*) install_and_launch "Cursor" "cursor-bin" "cursor" ;;
+  *Zed*) present_terminal maitri-install-zed ;;
+  *Sublime*) install_and_launch "Sublime Text" "sublime-text-4" "sublime_text" ;;
+  *Helix*) present_terminal maitri-install-helix ;;
+  *Vim*) install "Vim" "vim" ;;
+  *Emacs*) install "Emacs" "emacs-wayland" && systemctl --user enable --now emacs.service ;;
+  *) show_install_menu ;;
+  esac
+}
+
+show_install_terminal_menu() {
+  case $(menu "Install" "  Alacritty\n  Foot\n  Ghostty\n  Kitty") in
+  *Alacritty*) install_terminal "alacritty" ;;
+  *Foot*) install_terminal "foot" ;;
+  *Ghostty*) install_terminal "ghostty" ;;
+  *Kitty*) install_terminal "kitty" ;;
+  *) show_install_menu ;;
+  esac
+}
+
+show_install_ai_menu() {
+  ollama_pkg=$(
+    (maitri-cmd-present nvidia-smi && echo ollama-cuda) ||
+      (maitri-cmd-present rocminfo && echo ollama-rocm) ||
+      echo ollama
+  )
+
+  case $(menu "Install" "  Dictation\n󱚤  LM Studio\n󱚤  Ollama\n󱚤  Crush") in
+  *Dictation*) present_terminal maitri-voxtype-install ;;
+  *Studio*) install "LM Studio" "lmstudio-bin" ;;
+  *Ollama*) install "Ollama" $ollama_pkg ;;
+  *Crush*) install "Crush" "crush-bin" ;;
+  *) show_install_menu ;;
+  esac
+}
+
+show_install_gaming_menu() {
+  case $(menu "Install" "  Steam\n  RetroArch\n󰍳  Minecraft\n󰢹  NVIDIA GeForce NOW\n  Xbox Cloud Gaming\n󰂯  Xbox Controller\n󰍹  Moonlight (GameStream)\n  Lutris (Battle.net)\n󱓟  Heroic (Epic Games)") in
+  *Steam*) present_terminal maitri-install-gaming-steam ;;
+  *RetroArch*) present_terminal maitri-install-gaming-retroarch ;;
+  *Minecraft*) install_and_launch "Minecraft" "minecraft-launcher" "minecraft-launcher" ;;
+  *GeForce*) present_terminal maitri-install-gaming-geforce-now ;;
+  *"Xbox Cloud"*) present_terminal maitri-install-gaming-xbox-cloud ;;
+  *Xbox*) present_terminal maitri-install-gaming-xbox-controllers ;;
+  *Lutris*) present_terminal maitri-install-gaming-lutris ;;
+  *Heroic*) present_terminal maitri-install-gaming-heroic ;;
+  *Moonlight*) present_terminal maitri-install-gaming-moonlight ;;
+  *) show_install_menu ;;
+  esac
+}
+
+show_install_style_menu() {
+  case $(menu "Install" "󰸌  Theme\n  Background\n  Font") in
+  *Theme*) present_terminal maitri-theme-install ;;
+  *Background*) maitri-theme-bg-install ;;
+  *Font*) show_install_font_menu ;;
+  *) show_install_menu ;;
+  esac
+}
+
+show_install_font_menu() {
+  case $(menu "Install" "  Cascadia Mono\n  Meslo LG Mono\n  Fira Code\n  Victor Code\n  Bitstream Vera Mono\n  Iosevka" "--width 350") in
+  *Cascadia*) install_font "Cascadia Mono" "ttf-cascadia-mono-nerd" "CaskaydiaMono Nerd Font" ;;
+  *Meslo*) install_font "Meslo LG Mono" "ttf-meslo-nerd" "MesloLGL Nerd Font" ;;
+  *Fira*) install_font "Fira Code" "ttf-firacode-nerd" "FiraCode Nerd Font" ;;
+  *Victor*) install_font "Victor Code" "ttf-victor-mono-nerd" "VictorMono Nerd Font" ;;
+  *Bitstream*) install_font "Bitstream Vera Code" "ttf-bitstream-vera-mono-nerd" "BitstromWera Nerd Font" ;;
+  *Iosevka*) install_font "Iosevka" "ttf-iosevka-nerd" "Iosevka Nerd Font Mono" ;;
+  *) show_install_menu ;;
+  esac
+}
+
+show_install_development_menu() {
+  case $(menu "Install" "󰫏  Ruby on Rails\n  Docker DB\n  JavaScript\n  Go\n  PHP\n  Python\n  Elixir\n  Zig\n  Rust\n  Java\n  .NET\n  OCaml\n  Clojure\n  Scala") in
+  *Rails*) present_terminal "maitri-install-dev-env ruby" ;;
+  *Docker*) present_terminal maitri-install-docker-dbs ;;
+  *JavaScript*) show_install_javascript_menu ;;
+  *Go*) present_terminal "maitri-install-dev-env go" ;;
+  *PHP*) show_install_php_menu ;;
+  *Python*) present_terminal "maitri-install-dev-env python" ;;
+  *Elixir*) show_install_elixir_menu ;;
+  *Zig*) present_terminal "maitri-install-dev-env zig" ;;
+  *Rust*) present_terminal "maitri-install-dev-env rust" ;;
+  *Java*) present_terminal "maitri-install-dev-env java" ;;
+  *NET*) present_terminal "maitri-install-dev-env dotnet" ;;
+  *OCaml*) present_terminal "maitri-install-dev-env ocaml" ;;
+  *Clojure*) present_terminal "maitri-install-dev-env clojure" ;;
+  *Scala*) present_terminal "maitri-install-dev-env scala" ;;
+  *) show_install_menu ;;
+  esac
+}
+
+show_install_javascript_menu() {
+  case $(menu "Install" "  Node.js\n  Bun\n  Deno") in
+  *Node*) present_terminal "maitri-install-dev-env node" ;;
+  *Bun*) present_terminal "maitri-install-dev-env bun" ;;
+  *Deno*) present_terminal "maitri-install-dev-env deno" ;;
+  *) show_install_development_menu ;;
+  esac
+}
+
+show_install_php_menu() {
+  case $(menu "Install" "  PHP\n  Laravel\n  Symfony") in
+  *PHP*) present_terminal "maitri-install-dev-env php" ;;
+  *Laravel*) present_terminal "maitri-install-dev-env laravel" ;;
+  *Symfony*) present_terminal "maitri-install-dev-env symfony" ;;
+  *) show_install_development_menu ;;
+  esac
+}
+
+show_install_elixir_menu() {
+  case $(menu "Install" "  Elixir\n  Phoenix") in
+  *Elixir*) present_terminal "maitri-install-dev-env elixir" ;;
+  *Phoenix*) present_terminal "maitri-install-dev-env phoenix" ;;
+  *) show_install_development_menu ;;
+  esac
+}
+
+show_remove_menu() {
+  case $(menu "Remove" "󰣇  Package\n  Web App\n  TUI\n󰵮  Development\n󰸌  Theme\n  Browser\n  Dictation\n  Gaming\n󰍲  Windows\n󰏓  Preinstalls\n  Security") in
+  *Package*) terminal maitri-pkg-remove ;;
+  *Web*) present_terminal maitri-webapp-remove ;;
+  *TUI*) present_terminal maitri-tui-remove ;;
+  *Development*) show_remove_development_menu ;;
+  *Theme*) present_terminal maitri-theme-remove ;;
+  *Browser*) show_remove_browser_menu ;;
+  *Dictation*) present_terminal maitri-voxtype-remove ;;
+  *Gaming*) show_remove_gaming_menu ;;
+  *Windows*) present_terminal "maitri-windows-vm remove" ;;
+  *Preinstalls*) present_terminal maitri-remove-preinstalls ;;
+  *Security*) show_remove_security_menu ;;
+  *) show_main_menu ;;
+  esac
+}
+
+show_remove_security_menu() {
+  case $(menu "Remove" "󰈷  Fingerprint\n  Fido2") in
+  *Fingerprint*) present_terminal maitri-remove-security-fingerprint ;;
+  *Fido2*) present_terminal maitri-remove-security-fido2 ;;
+  *) show_remove_menu ;;
+  esac
+}
+
+show_remove_browser_menu() {
+  case $(menu "Remove" "  Chrome\n  Edge\n  Brave\n  Brave Origin\n  Firefox\n  Zen") in
+  *Chrome*) present_terminal "maitri-remove-browser chrome" ;;
+  *Edge*) present_terminal "maitri-remove-browser edge" ;;
+  *"Brave Origin"*) present_terminal "maitri-remove-browser brave-origin" ;;
+  *Brave*) present_terminal "maitri-remove-browser brave" ;;
+  *Firefox*) present_terminal "maitri-remove-browser firefox" ;;
+  *Zen*) present_terminal "maitri-remove-browser zen" ;;
+  *) show_remove_menu ;;
+  esac
+}
+
+show_remove_gaming_menu() {
+  case $(menu "Remove" "  Steam\n  RetroArch\n󰍳  Minecraft\n󰢹  NVIDIA GeForce NOW\n  Xbox Cloud Gaming\n󰖺  Xbox Controller (󰂯)\n󰍹  Moonlight (GameStream)\n  Lutris (Battle.net)\n󱓟  Heroic (Epic Games)") in
+  *Steam*) present_terminal maitri-remove-gaming-steam ;;
+  *RetroArch*) present_terminal maitri-remove-gaming-retroarch ;;
+  *Minecraft*) present_terminal maitri-remove-gaming-minecraft ;;
+  *GeForce*) present_terminal maitri-remove-gaming-geforce-now ;;
+  *"Xbox Cloud"*) present_terminal maitri-remove-gaming-xbox-cloud ;;
+  *Xbox*) present_terminal maitri-remove-gaming-xbox-controllers ;;
+  *Moonlight*) present_terminal maitri-remove-gaming-moonlight ;;
+  *Lutris*) present_terminal maitri-remove-gaming-lutris ;;
+  *Heroic*) present_terminal maitri-remove-gaming-heroic ;;
+  *) show_remove_menu ;;
+  esac
+}
+
+show_remove_development_menu() {
+  case $(menu "Remove" "󰫏  Ruby on Rails\n  JavaScript\n  Go\n  PHP\n  Python\n  Elixir\n  Zig\n  Rust\n  Java\n  .NET\n  OCaml\n  Clojure\n  Scala") in
+  *Rails*) present_terminal "maitri-remove-dev-env ruby" ;;
+  *JavaScript*) show_remove_javascript_menu ;;
+  *Go*) present_terminal "maitri-remove-dev-env go" ;;
+  *PHP*) show_remove_php_menu ;;
+  *Python*) present_terminal "maitri-remove-dev-env python" ;;
+  *Elixir*) show_remove_elixir_menu ;;
+  *Zig*) present_terminal "maitri-remove-dev-env zig" ;;
+  *Rust*) present_terminal "maitri-remove-dev-env rust" ;;
+  *Java*) present_terminal "maitri-remove-dev-env java" ;;
+  *NET*) present_terminal "maitri-remove-dev-env dotnet" ;;
+  *OCaml*) present_terminal "maitri-remove-dev-env ocaml" ;;
+  *Clojure*) present_terminal "maitri-remove-dev-env clojure" ;;
+  *Scala*) present_terminal "maitri-remove-dev-env scala" ;;
+  *) show_remove_menu ;;
+  esac
+}
+
+show_remove_javascript_menu() {
+  case $(menu "Remove" "  Node.js\n  Bun\n  Deno") in
+  *Node*) present_terminal "maitri-remove-dev-env node" ;;
+  *Bun*) present_terminal "maitri-remove-dev-env bun" ;;
+  *Deno*) present_terminal "maitri-remove-dev-env deno" ;;
+  *) show_remove_development_menu ;;
+  esac
+}
+
+show_remove_php_menu() {
+  case $(menu "Remove" "  PHP\n  Laravel\n  Symfony") in
+  *PHP*) present_terminal "maitri-remove-dev-env php" ;;
+  *Laravel*) present_terminal "maitri-remove-dev-env laravel" ;;
+  *Symfony*) present_terminal "maitri-remove-dev-env symfony" ;;
+  *) show_remove_development_menu ;;
+  esac
+}
+
+show_remove_elixir_menu() {
+  case $(menu "Remove" "  Elixir\n  Phoenix") in
+  *Elixir*) present_terminal "maitri-remove-dev-env elixir" ;;
+  *Phoenix*) present_terminal "maitri-remove-dev-env phoenix" ;;
+  *) show_remove_development_menu ;;
+  esac
+}
+
+show_update_menu() {
+  case $(menu "Update" "  maitri\n󰔫  Channel\n  Config\n󰸌  Extra Themes\n  Process\n󰇅  Hardware\n  Firmware\n  Password\n  Timezone\n  Time") in
+  *maitri*) present_terminal maitri-update ;;
+  *Channel*) show_update_channel_menu ;;
+  *Config*) show_update_config_menu ;;
+  *Themes*) present_terminal maitri-theme-update ;;
+  *Process*) show_update_process_menu ;;
+  *Hardware*) show_update_hardware_menu ;;
+  *Firmware*) present_terminal maitri-update-firmware ;;
+  *Timezone*) present_terminal maitri-tz-select ;;
+  *Time*) present_terminal maitri-update-time ;;
+  *Password*) show_update_password_menu ;;
+  *) show_main_menu ;;
+  esac
+}
+
+show_update_channel_menu() {
+  case $(menu "Update channel" "🟢 Stable\n🟡 RC\n🟠 Edge\n🔴 Dev") in
+  *Stable*) present_terminal "maitri-channel-set stable" ;;
+  *RC*) present_terminal "maitri-channel-set rc" ;;
+  *Edge*) present_terminal "maitri-channel-set edge" ;;
+  *Dev*) present_terminal "maitri-channel-set dev" ;;
+  *) show_update_menu ;;
+  esac
+}
+show_update_process_menu() {
+  case $(menu "Restart" "  Hypridle\n  Hyprsunset\n󰎟  Mako\n  Swayosd\n󰌧  Walker\n󰍜  Waybar") in
+  *Hypridle*) maitri-restart-hypridle ;;
+  *Hyprsunset*) maitri-restart-hyprsunset ;;
+  *Mako*) maitri-restart-mako ;;
+  *Swayosd*) maitri-restart-swayosd ;;
+  *Walker*) maitri-restart-walker ;;
+  *Waybar*) maitri-restart-waybar ;;
+  *) show_update_menu ;;
+  esac
+}
+
+show_update_config_menu() {
+  case $(menu "Use default config" "  Hyprland\n  Hypridle\n  Hyprlock\n  Hyprsunset\n󱣴  Plymouth\n  Swayosd\n  Tmux\n󰌧  Walker\n󰍜  Waybar") in
+  *Hyprland*) present_terminal maitri-refresh-hyprland ;;
+  *Hypridle*) present_terminal maitri-refresh-hypridle ;;
+  *Hyprlock*) present_terminal maitri-refresh-hyprlock ;;
+  *Hyprsunset*) present_terminal maitri-refresh-hyprsunset ;;
+  *Plymouth*) present_terminal maitri-refresh-plymouth ;;
+  *Swayosd*) present_terminal maitri-refresh-swayosd ;;
+  *Tmux*) present_terminal maitri-refresh-tmux ;;
+  *Walker*) present_terminal maitri-refresh-walker ;;
+  *Waybar*) present_terminal maitri-refresh-waybar ;;
+  *) show_update_menu ;;
+  esac
+}
+
+show_update_hardware_menu() {
+  case $(menu "Restart" "  Audio\n󱚾  Wi-Fi\n󰂯  Bluetooth\n󰟸  Trackpad") in
+  *Audio*) present_terminal maitri-restart-pipewire ;;
+  *Wi-Fi*) present_terminal maitri-restart-wifi ;;
+  *Bluetooth*) present_terminal maitri-restart-bluetooth ;;
+  *Trackpad*) present_terminal maitri-restart-trackpad ;;
+  *) show_update_menu ;;
+  esac
+}
+
+show_update_password_menu() {
+  case $(menu "Update Password" "  Drive Encryption\n  User") in
+  *Drive*) present_terminal maitri-drive-password ;;
+  *User*) present_terminal passwd ;;
+  *) show_update_menu ;;
+  esac
+}
+
+show_about() {
+  maitri-launch-about
+}
+
+show_system_menu() {
+  local options="󱄄  Screensaver\n  Lock"
+  ! maitri-toggle-enabled suspend-off && options="$options\n󰒲  Suspend"
+  maitri-hibernation-available && options="$options\n󰤁  Hibernate"
+  options="$options\n󰍃  Logout\n󰜉  Restart\n󰐥  Shutdown"
+
+  case $(menu "System" "$options") in
+  *Screensaver*) maitri-launch-screensaver force ;;
+  *Lock*) maitri-system-lock ;;
+  *Suspend*) systemctl suspend ;;
+  *Hibernate*) systemctl hibernate ;;
+  *Logout*) maitri-system-logout ;;
+  *Restart*) maitri-system-reboot ;;
+  *Shutdown*) maitri-system-shutdown ;;
+  *) back_to show_main_menu ;;
+  esac
+}
+
+show_main_menu() {
+  go_to_menu "$(menu "Go" "󰀻  Apps\n󰧑  Learn\n󱓞  Trigger\n  Style\n  Setup\n󰉉  Install\n󰭌  Remove\n  Update\n  About\n  System")"
+}
+
+go_to_menu() {
+  case "${1,,}" in
+  *apps*) walker -p "Launch…" ;;
+  *learn*) show_learn_menu ;;
+  *trigger*) show_trigger_menu ;;
+  *toggle*) show_toggle_menu ;;
+  *hardware*) show_hardware_menu ;;
+  *share*) show_share_menu ;;
+  *reminder-set*) show_custom_reminder_input ;;
+  *reminder*) show_reminder_menu ;;
+  *background*) show_background_menu ;;
+  *capture*) show_capture_menu ;;
+  *style*) show_style_menu ;;
+  *theme*) show_theme_menu ;;
+  *screenrecord*) show_screenrecord_menu ;;
+  *setup*) show_setup_menu ;;
+  *power*) show_setup_power_menu ;;
+  *install*) show_install_menu ;;
+  *remove*) show_remove_menu ;;
+  *update*) show_update_menu ;;
+  *about*) show_about ;;
+  *system*) show_system_menu ;;
+  esac
+}
+
+# Allow user extensions and overrides
+USER_EXTENSIONS="$HOME/.config/maitri/extensions/menu.sh"
+[[ -f $USER_EXTENSIONS ]] && source "$USER_EXTENSIONS"
+
+toggle_existing_menu
+
+if [[ -n $1 ]]; then
+  BACK_TO_EXIT=true
+  go_to_menu "$1"
+else
+  show_main_menu
+fi

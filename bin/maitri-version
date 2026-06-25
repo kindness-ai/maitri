@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# maitri:summary=Print the installed maitri version
+
+cat $MAITRI_PATH/version

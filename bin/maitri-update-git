@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# maitri:summary=Pull the latest maitri git changes
+
+set -e
+
+echo -e "\e[32mUpdate maitri\e[0m"
+
+maitri-update-time
+
+# Suppress Hyprland config errors while git updates default config files mid-pull
+hyprctl keyword debug:suppress_errors true &>/dev/null || true
+
+# An interrupted update or a manual git checkout can leave the repo with a
+# detached HEAD, which makes `git pull --autostash` fail with "not currently on
+# a branch". Reattach to the default branch (falling back to main) first.
+if ! git -C $MAITRI_PATH symbolic-ref -q HEAD >/dev/null; then
+  default_branch=$(git -C $MAITRI_PATH rev-parse --abbrev-ref origin/HEAD 2>/dev/null || true)
+  git -C $MAITRI_PATH checkout "${default_branch#origin/}" 2>/dev/null || git -C $MAITRI_PATH checkout main
+fi
+
+git -C $MAITRI_PATH pull --autostash
+git -C $MAITRI_PATH --no-pager diff --check || git -C $MAITRI_PATH reset --merge
+
+hyprctl reload &>/dev/null || true
