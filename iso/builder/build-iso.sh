@@ -88,6 +88,7 @@ printf '%s\n' "${arch_packages[@]}" >>"$build_cache_dir/packages.x86_64"
 all_packages=($(cat "$build_cache_dir/packages.x86_64"))
 all_packages+=($(grep -v '^#' "$build_cache_dir/airootfs/root/maitri/install/maitri-base.packages" | grep -v '^$'))
 all_packages+=($(grep -v '^#' "$build_cache_dir/airootfs/root/maitri/install/maitri-other.packages" | grep -v '^$'))
+all_packages+=($(grep -v '^#' "$build_cache_dir/airootfs/root/maitri/install/maitri-apps.packages" | grep -v '^$'))
 all_packages+=($(grep -v '^#' /builder/archinstall.packages | grep -v '^$'))
 
 # Download all the packages to the offline mirror inside the ISO
