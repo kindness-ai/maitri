@@ -4,7 +4,7 @@
 # maitri:requires-sudo=true
 
 echo "Installing ONCE..."
-maitri-pkg-add once-bin
+maitri-pkg-aur-add once-bin
 
 echo "Enabling ONCE background service..."
 sudo systemctl enable --now once-background.service

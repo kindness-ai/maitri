@@ -6,7 +6,7 @@
 set -e
 
 echo "Installing Heroic Games Launcher..."
-maitri-pkg-add heroic-games-launcher-bin
+maitri-pkg-aur-add heroic-games-launcher-bin
 maitri-install-gaming-gpu-lib32
 
 setsid gtk-launch heroic >/dev/null 2>&1 &

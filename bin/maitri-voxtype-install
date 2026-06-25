@@ -8,7 +8,10 @@ set -e
 # Install voxtype and configure it for use.
 
 if gum confirm "Install Voxtype + AI model (~150MB) to enable dictation?"; then
-  maitri-pkg-add wtype voxtype-bin
+  # wtype is in the official repos; voxtype-bin is AUR-only (opt-in dictation, not
+  # hosted in [maitri]) so it's built from the AUR on demand here.
+  maitri-pkg-add wtype
+  maitri-pkg-aur-add voxtype-bin
 
   # Setup voxtype
   mkdir -p ~/.config/voxtype
