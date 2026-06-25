@@ -100,6 +100,7 @@ jobs:
           iso="release/$name"
           tag="${{ steps.ref.outputs.ref }}"; tag="${tag//\//-}"
           ns="${DOCKERHUB_NAMESPACE:-$DOCKERHUB_USERNAME}"
+          ns="${ns%/maitri-iso}"   # tolerate the var being set to the full "<ns>/maitri-iso"
           repo="docker.io/$ns/maitri-iso"
 
           sha=$(sha256sum "$iso" | awk '{print $1}')
