@@ -41,7 +41,10 @@ linux-ptl
 linux-ptl-headers
 macbook12-spi-driver-dkms
 tuxedo-drivers-nocompatcheck-dkms
-yt6801-dkms
+# yt6801-dkms omitted from the offline mirror: its PKGBUILD doesn't build against the
+# current upstream vendor zip, so it isn't in [maitri]. The install-time fix
+# (install/config/hardware/fix-yt6801-ethernet-adapter.sh) is lspci-gated and is a
+# no-op until the package is fixed. Tracked in BEYER-8.
 
 pipewire
 pipewire-alsa
