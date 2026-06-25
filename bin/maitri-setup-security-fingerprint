@@ -50,19 +50,17 @@ add_hyprlock_fingerprint_icon() {
 
 echo -e "\e[32mSetting up fingerprint scanner for authentication.\n\e[0m"
 
-# Install required packages
+# Install required packages. Stock libfprint (official 'extra' repo) is the standard
+# fingerprint stack and what fprintd depends on. If a libfprint-git is present from a
+# previous attempt it provides+conflicts libfprint and blocks the install, so drop it
+# first with -Rdd (ignore the dep; stock libfprint re-satisfies fprintd immediately).
 echo "Installing required packages..."
 
-# libfprint-git provides+conflicts libfprint; pacman -S --noconfirm
-# defaults the conflict prompt to N and aborts. Pre-remove libfprint
-# with -Rdd so the install goes silent. -Rdd (not maitri-pkg-drop's
-# -Rns) is required because fprintd requires libfprint; the dep is
-# re-satisfied immediately by libfprint-git's provides=libfprint.
-if maitri-pkg-present libfprint; then
-  sudo pacman -Rdd --noconfirm libfprint
+if maitri-pkg-present libfprint-git; then
+  sudo pacman -Rdd --noconfirm libfprint-git
 fi
 
-maitri-pkg-add libfprint-git fprintd usbutils
+maitri-pkg-add libfprint fprintd usbutils
 
 if ! check_fingerprint_hardware; then
   exit 1
