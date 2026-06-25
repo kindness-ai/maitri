@@ -19,20 +19,23 @@ d = sys.argv[1]
 
 ONEPASSWORD = "khgocmkkpikpnmmkgmdnfckapcdkgfaf"  # 1Password beta extension
 
-for sub in ("Default", "Profile 1"):
+# Custom profile directory names. Chromium identifies profiles by their directory key
+# as recorded in Local State, so naming the dirs "work"/"personal" (instead of the
+# stock "Default"/"Profile 1") works as long as every reference below stays consistent.
+for sub in ("work", "personal"):
     os.makedirs(os.path.join(d, sub), exist_ok=True)
 
 local_state = {
     "profile": {
         "info_cache": {
-            "Default":   {"name": "Work", "is_using_default_name": False,
-                          "avatar_icon": "chrome://theme/IDR_PROFILE_AVATAR_26"},
-            "Profile 1": {"name": "Personal", "is_using_default_name": False,
-                          "avatar_icon": "chrome://theme/IDR_PROFILE_AVATAR_30"},
+            "work":     {"name": "Work", "is_using_default_name": False,
+                         "avatar_icon": "chrome://theme/IDR_PROFILE_AVATAR_26"},
+            "personal": {"name": "Personal", "is_using_default_name": False,
+                         "avatar_icon": "chrome://theme/IDR_PROFILE_AVATAR_30"},
         },
-        "profiles_order": ["Default", "Profile 1"],
-        "last_used": "Default",
-        "last_active_profiles": ["Default"],
+        "profiles_order": ["work", "personal"],
+        "last_used": "work",
+        "last_active_profiles": ["work"],
     }
 }
 json.dump(local_state, open(os.path.join(d, "Local State"), "w"), indent=2)
@@ -93,8 +96,8 @@ def prefs(name):
         },
     }
 
-json.dump(prefs("Work"), open(os.path.join(d, "Default", "Preferences"), "w"), indent=2)
-json.dump(prefs("Personal"), open(os.path.join(d, "Profile 1", "Preferences"), "w"), indent=2)
+json.dump(prefs("Work"), open(os.path.join(d, "work", "Preferences"), "w"), indent=2)
+json.dump(prefs("Personal"), open(os.path.join(d, "personal", "Preferences"), "w"), indent=2)
 print("maitri: seeded Helium profiles — Work + Personal")
 PY
 fi
